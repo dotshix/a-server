@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 import User from './userModel.js'; // Ensure your userModel.js is updated accordingly
 import cors from 'cors';
-import puppeteer from 'puppeteer';
+import { scrapeSearch } from './scrape.js'; // Import the scraper function
 
 dotenv.config();
 
@@ -20,7 +20,8 @@ const app = express();
 app.use(cors());
 
 // Middleware to parse incoming request body as raw for webhook verification
-app.use(bodyParser.raw({ type: 'application/json' }));
+//app.use(bodyParser.raw({ type: 'application/json' }));
+app.use(express.json());
 
 // POST route for handling webhook events
 app.post('/api/webhooks', async function (req, res) {
@@ -31,18 +32,26 @@ app.post('/api/webhooks', async function (req, res) {
     const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET_KEY);
     const evt = wh.verify(payloadString, svixHeaders);
 
-    const { id } = evt.data;
+    const { id } = evt.data; // Clerk's user ID
     const eventType = evt.type;
+    const clerkUsername = evt.data.username; // Assuming username is part of the event data structure
 
     switch (eventType) {
       case 'user.created':
-        // Assuming you want to create or update a user with an incremented counter
+        // Create or update a user, setting the username
         const user = await User.findOneAndUpdate(
           { clerkUserId: id },
-          { $inc: { counter: 1 } }, // Increment counter
+            {
+              $set: { username: clerkUsername }, // Set username
+              $setOnInsert: {
+                gamesPlayed: 0,       // Set gamesPlayed to 0 only on insert
+                attemptsCorrect: 0,   // Set attemptsCorrect to 0 only on insert
+                attemptsWrong: 0      // Set attemptsWrong to 0 only on insert
+              }
+            },
           { new: true, upsert: true } // Create the document if it doesn't exist, return new document
         );
-        console.log(`User ${id} created or updated with incremented counter.`);
+        console.log(`User ${id} created or updated with username: ${clerkUsername} and incremented counter.`);
         break;
 
       case 'user.deleted':
@@ -69,11 +78,8 @@ app.post('/api/webhooks', async function (req, res) {
 // GET route to fetch user data including the counter
 app.get('/api/user/:clerkUserId', async (req, res) => {
   try {
-    // Implement your authentication check here.
-    // For example, verify the Clerk session or JWT.
-
     const { clerkUserId } = req.params;
-    const user = await User.findOne({ clerkUserId }, 'counter'); // Fetch only the 'counter' field
+    const user = await User.findOne({ clerkUserId }, 'username gamesPlayed attemptsCorrect attemptsWrong'); // Fetch these fields
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -83,7 +89,10 @@ app.get('/api/user/:clerkUserId', async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        counter: user.counter, // Return only the counter to the client
+        username: user.username,
+        gamesPlayed: user.gamesPlayed,
+        attemptsCorrect: user.attemptsCorrect,
+        attemptsWrong: user.attemptsWrong
       },
     });
   } catch (err) {
@@ -93,13 +102,24 @@ app.get('/api/user/:clerkUserId', async (req, res) => {
     });
   }
 });
+
 // POST route to increment user's counter
-app.post('/api/updateCount/:clerkUserId', async (req, res) => {
+app.post('/api/updateGameStats/:clerkUserId', async (req, res) => {
   try {
     const { clerkUserId } = req.params;
+    const { gamesPlayedInc, attemptsCorrectInc, attemptsWrongInc } = req.body; // These values are sent in the request body
+
+    console.log(gamesPlayedInc, attemptsCorrectInc, attemptsWrongInc);  // Log the destructured variables
+  console.log('Parsed body:', req.body);
     const updatedUser = await User.findOneAndUpdate(
       { clerkUserId },
-      { $inc: { counter: 1 } }, // Increment counter
+      {
+        $inc: {
+          gamesPlayed: gamesPlayedInc || 0,       // Increment gamesPlayed by received value or 0
+          attemptsCorrect: attemptsCorrectInc || 0, // Increment attemptsCorrect by received value or 0
+          attemptsWrong: attemptsWrongInc || 0      // Increment attemptsWrong by received value or 0
+        }
+      },
       { new: true } // Return the updated document
     );
     if (!updatedUser) {
@@ -111,9 +131,13 @@ app.post('/api/updateCount/:clerkUserId', async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        counter: updatedUser.counter,
+        username: updatedUser.username,
+        gamesPlayed: updatedUser.gamesPlayed,
+        attemptsCorrect: updatedUser.attemptsCorrect,
+        attemptsWrong: updatedUser.attemptsWrong
       },
     });
+
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -122,97 +146,25 @@ app.post('/api/updateCount/:clerkUserId', async (req, res) => {
   }
 });
 
-// Route to scrape bestsellers from Amazon
-app.get('/api/scrapeBestSellers', async (req, res) => {
+// Endpoint to scrape data and return a random item
+app.get('/api/scrape/:searchItem', async (req, res) => {
+  const { searchItem } = req.params;
   try {
-    const itemLinks = await scrapeBestSellers();
-    res.json({
-      success: true,
-      data: itemLinks,
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-});
-// Route to scrape details from a specific Amazon item link
-app.get('/api/scrapeItem', async (req, res) => {
-  try {
-    // Retrieve the item link from the query parameter
-    const { link } = req.query;
-
-    // Check if the link parameter is provided
-    if (!link) {
-      return res.status(400).json({
-        success: false,
-        message: 'Item link is required',
-      });
+    const items = await scrapeSearch(searchItem);
+    if (items.length === 0) {
+      res.status(404).json({ success: false, message: "No items found" });
+    } else {
+      const randomItem = items[Math.floor(Math.random() * items.length)];
+      res.status(200).json({ success: true, data: randomItem });
     }
-
-    // Call the scrapeItemLink function with the provided link
-    const itemDetails = await scrapeItemLink(link);
-
-    // Respond with the scraped item details
-    res.status(200).json({
-      success: true,
-      data: itemDetails,
-    });
-  } catch (err) {
-    // Handle any errors that occur during the process
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
-
-
-// Implementation of the scrapeBestSellers function
-async function scrapeBestSellers() {
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
-  await page.goto('https://www.amazon.com/gp/bestsellers/', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.a-carousel-card .a-link-normal[href]', { visible: true });
-
-  const itemLinks = await page.evaluate(() => {
-    const links = [];
-    const linkElements = document.querySelectorAll('.a-carousel-card .a-link-normal[href]');
-
-    linkElements.forEach(linkElement => {
-      const href = linkElement.href;
-      if (href && !links.includes(href) && !href.includes('product-reviews'))
-        links.push(href);
-    });
-
-    return links;
-  });
-
-  await browser.close();
-  return itemLinks;
-}
-
-// Implementation of the scrapeItemLink function
-async function scrapeItemLink(link) {
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
-  await page.goto(link, { waitUntil: 'domcontentloaded' });
-
-  const itemDetails = await page.evaluate(() => {
-    const title = document.querySelector('#productTitle')?.textContent?.trim() || 'Title Not Found';
-    const price = document.querySelector('.aok-offscreen')?.textContent?.trim() || 'Price Not Found';
-    const imgLink = document.querySelector('.a-dynamic-image')?.src || 'Image Not Found';
-
-    return [title, price, imgLink];
-  });
-
-  await browser.close();
-  return itemDetails;
-}
 
 const port = process.env.PORT || 7000;
 
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
+
 });
