@@ -174,7 +174,12 @@ app.get('/api/scrape', async (req, res) => {
 
     const scrapedData = await scrapeSearch(item);
     const products = JSON.parse(scrapedData); // Parse the stringified JSON data
-
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No products found'
+      });
+    }
     console.log(scrapedData)
     console.log(products)
 
