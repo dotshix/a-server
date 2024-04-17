@@ -76,10 +76,17 @@ app.post('/api/webhooks', async function (req, res) {
 });
 
 // GET route to fetch user data including the counter
-app.get('/api/user/:clerkUserId', async (req, res) => {
+app.get('/api/user/:userIdentifier', async (req, res) => {
   try {
-    const { clerkUserId } = req.params;
-    const user = await User.findOne({ clerkUserId }, 'username gamesPlayed attemptsCorrect attemptsWrong'); // Fetch these fields
+    const { userIdentifier } = req.params;
+    // Attempt to find the user by clerkUserId or username
+    const user = await User.findOne({
+      $or: [
+        { clerkUserId: userIdentifier },
+        { username: userIdentifier }
+      ]
+    }, 'username gamesPlayed attemptsCorrect attemptsWrong');
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -104,15 +111,21 @@ app.get('/api/user/:clerkUserId', async (req, res) => {
 });
 
 // POST route to increment user's counter
-app.post('/api/updateGameStats/:clerkUserId', async (req, res) => {
+app.post('/api/updateGameStats/:userIdentifier', async (req, res) => {
   try {
-    const { clerkUserId } = req.params;
-    const { gamesPlayedInc, attemptsCorrectInc, attemptsWrongInc } = req.body; // These values are sent in the request body
+    const { userIdentifier } = req.params;
+    const { gamesPlayedInc, attemptsCorrectInc, attemptsWrongInc } = req.body; // Values sent in the request body
 
     console.log(gamesPlayedInc, attemptsCorrectInc, attemptsWrongInc);  // Log the destructured variables
-  console.log('Parsed body:', req.body);
+    console.log('Parsed body:', req.body);
+
     const updatedUser = await User.findOneAndUpdate(
-      { clerkUserId },
+      {
+        $or: [
+          { clerkUserId: userIdentifier },
+          { username: userIdentifier }
+        ]
+      },
       {
         $inc: {
           gamesPlayed: gamesPlayedInc || 0,       // Increment gamesPlayed by received value or 0
@@ -122,6 +135,7 @@ app.post('/api/updateGameStats/:clerkUserId', async (req, res) => {
       },
       { new: true } // Return the updated document
     );
+
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
@@ -161,6 +175,7 @@ app.get('/api/scrape/:searchItem', async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
 // GET route for scraping product information and returning a random item
 app.get('/api/scrape', async (req, res) => {
   try {
