@@ -4,15 +4,14 @@ import { parse } from 'node-html-parser';
 const fetchPage = async (url, item) => {
   const headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"};
 
-  try {
-    const response = await axios.get(`${url}/s?k=${encodeURIComponent(item)}`, { headers });
-    console.log("HTTP Status Code:", response.status);  // Log the HTTP status code
+  try
+  {
+    const response = await axios.get(url + "/s?k=" + encodeURIComponent(item), { headers });
     return response.data;
-  } catch (error) {
+  }
+  catch (error)
+  {
     console.error("Error fetching page:", error);
-    if (error.response) {
-      console.error("HTTP Status Code:", error.response.status);  // Log the status code on error
-    }
     return null;
   }
 };
@@ -20,6 +19,7 @@ const fetchPage = async (url, item) => {
 const scrape = (html) => {
   const root = parse(html);
 
+  console.log(html)
   // Gather product titles
   const titleNodes = root.querySelectorAll("div.a-section.a-spacing-base h2 span.a-color-base.a-text-normal");
   const titles = titleNodes.map(node => node.innerText);
@@ -46,14 +46,11 @@ const scrape = (html) => {
 export const scrapeSearch = async (item) => {
   const html = await fetchPage("https://www.amazon.com", item);
 
-  if (!html) {
-    console.log("Failed to fetch HTML content.");
-    return [];
-  }
+  if (!html) return [];
   return JSON.stringify(scrape(html), null, 2);
+  //return scrape(html);
 };
 
-// Uncomment to run the function directly
 // const main = async () => {
 //   const result = await scrapeSearch("Pencil Case");
 //   console.log(result);
