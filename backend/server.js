@@ -180,8 +180,6 @@ app.get('/api/scrape', async (req, res) => {
         message: 'No products found'
       });
     }
-    console.log(scrapedData)
-    console.log(products)
 
     // Select a random product from the array
     const randomProduct = products[Math.floor(Math.random() * products.length)];

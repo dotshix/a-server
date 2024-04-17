@@ -32,6 +32,10 @@ const scrape = (html) => {
   const pictureNodes = root.querySelectorAll("div.a-section.a-spacing-base img.s-image[srcset]");
   const pictures = pictureNodes.map(node => node.getAttribute("src"));
 
+  console.log(titles);
+  console.log(prices);
+  console.log(pictures);
+
   // Put data together
   const products = titles.map((title, index) => {
     if (title && prices[index] && pictures[index])
