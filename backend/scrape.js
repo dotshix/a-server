@@ -21,15 +21,28 @@ const scrape = (html) => {
 
   //console.log(html)
   // Gather product titles
-  const titleNodes = root.querySelectorAll("div.a-section.a-spacing-base h2 span.a-color-base.a-text-normal");
+  // const titleNodes = root.querySelectorAll("div.a-section.a-spacing-base h2 span.a-color-base.a-text-normal");
+  // const titles = titleNodes.map(node => node.innerText);
+
+  // // Gather prices
+  // const priceNodes = root.querySelectorAll('div.a-section.a-spacing-base span.a-price[data-a-color="base"] span.a-offscreen');
+  // const prices = priceNodes.map(node => node.innerText);
+
+  // // Gather pictures
+  // const pictureNodes = root.querySelectorAll("div.a-section.a-spacing-base img.s-image[srcset]");
+  // const pictures = pictureNodes.map(node => node.getAttribute("src"));
+  let titleNodes = root.querySelectorAll("div.a-section.a-spacing-base h2 span.a-color-base.a-text-normal");
+  titleNodes = titleNodes.length == 0 ? root.querySelectorAll("div.a-section.a-spacing-small span.a-size-medium.a-color-base.a-text-normal") : titleNodes;
   const titles = titleNodes.map(node => node.innerText);
 
   // Gather prices
-  const priceNodes = root.querySelectorAll('div.a-section.a-spacing-base span.a-price[data-a-color="base"] span.a-offscreen');
+  let priceNodes = root.querySelectorAll('div.a-section.a-spacing-base span.a-price[data-a-color="base"] span.a-offscreen');
+  priceNodes = priceNodes.length == 0 ? root.querySelectorAll("div.a-section span.a-price span.a-offscreen") : priceNodes;
   const prices = priceNodes.map(node => node.innerText);
 
   // Gather pictures
-  const pictureNodes = root.querySelectorAll("div.a-section.a-spacing-base img.s-image[srcset]");
+  let pictureNodes = root.querySelectorAll("div.a-section.a-spacing-base img.s-image[srcset]");
+  pictureNodes = pictureNodes.length == 0 ? root.querySelectorAll("div.a-section.aok-relative.s-image-fixed-height img") : pictureNodes;
   const pictures = pictureNodes.map(node => node.getAttribute("src"));
 
   console.log(titles);
