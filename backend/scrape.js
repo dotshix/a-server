@@ -1,69 +1,58 @@
-import puppeteer from 'puppeteer';
-import fs from 'fs';
+import axios from 'axios';
+import { parse } from 'node-html-parser';
 
-const scrape = async (page) => {
-  // Gather product title
-  const title = await page.$$eval("div.a-section.a-spacing-base h2 span.a-color-base", (nodes) =>
-    nodes.map((n) => n.innerText)
-  );
+const fetchPage = async (url, item) => {
+  const headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"};
 
-  // Gather price
-  const price = await page.$$eval(
-    "div.a-section.a-spacing-base span.a-price[data-a-color='base'] span.a-offscreen",
-    (nodes) => nodes.map((n) => n.innerText)
-  );
+  try
+  {
+    const response = await axios.get(url + "/s?k=" + encodeURIComponent(item), { headers });
+    return response.data;
+  }
+  catch (error)
+  {
+    console.error("Error fetching page:", error);
+    return null;
+  }
+};
 
-  // Gather picture
-  const picture = await page.$$eval(
-    'div.a-section.a-spacing-base img.s-image[srcset]',
-    (nodes) => nodes.map((n) => n.src)
-  );
+const scrape = (html) => {
+  const root = parse(html);
+
+  // Gather product titles
+  const titleNodes = root.querySelectorAll("div.a-section.a-spacing-base h2 span.a-color-base.a-text-normal");
+  const titles = titleNodes.map(node => node.innerText);
+
+  // Gather prices
+  const priceNodes = root.querySelectorAll('div.a-section.a-spacing-base span.a-price[data-a-color="base"] span.a-offscreen');
+  const prices = priceNodes.map(node => node.innerText);
+
+  // Gather pictures
+  const pictureNodes = root.querySelectorAll("div.a-section.a-spacing-base img.s-image[srcset]");
+  const pictures = pictureNodes.map(node => node.getAttribute("src"));
 
   // Put data together
-  const amazonSearchArray = title.map((_, index) => {
-    if (title[index] && price[index] && picture[index]) {
-      return {
-        title: title[index],
-        price: price[index],
-        picture: picture[index],
-      };
-    }
-    else return null;  // Return null for items that do not contain all three
-  }).filter(item => item !== null);  // Filter out the null entries
+  const products = titles.map((title, index) => {
+    if (title && prices[index] && pictures[index])
+      return { title, price: prices[index], picture: pictures[index] };
 
-  return amazonSearchArray;
+    return null;
+  }).filter(item => item !== null);
+
+  return products;
 };
 
 export const scrapeSearch = async (item) => {
-  const browser = await puppeteer.launch({ headless: true });
+  const html = await fetchPage("https://www.amazon.com", item);
 
-  const page = await browser.newPage();
-
-  await page.goto("https://www.amazon.com");
-
-  try {
-    await page.type("#twotabsearchtextbox", item);
-    await page.click("#nav-search-submit-button");
-  } catch (e) {
-    // Fallback case, cause apparently Amazon has 2 sites...?
-    await page.type('input[type="text"]', item);
-    await page.click('input[type="submit"]');
-  }
-
-  await page.waitForSelector(".s-pagination-next");
-
-  const ret = await scrape(page);
-
-  // Save scraped data to JSON file
-  fs.writeFile('output.json', JSON.stringify(ret, null, 2), err => {
-    if (err) {
-      console.error('Error writing file', err);
-    } else {
-      console.log('Successfully wrote data to file');
-    }
-  });
-
-  await browser.close();
-
-  return ret;
+  if (!html) return [];
+  return JSON.stringify(scrape(html), null, 2);
+  //return scrape(html);
 };
+
+// const main = async () => {
+//   const result = await scrapeSearch("Pencil Case");
+//   console.log(result);
+// }
+
+// main();

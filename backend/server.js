@@ -161,6 +161,41 @@ app.get('/api/scrape/:searchItem', async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+// GET route for scraping product information and returning a random item
+app.get('/api/scrape', async (req, res) => {
+  try {
+    const { item } = req.query; // Capture the search item from the query parameter
+    if (!item) {
+      return res.status(400).json({
+        success: false,
+        message: 'No search item specified'
+      });
+    }
+
+    const scrapedData = await scrapeSearch(item);
+    const products = JSON.parse(scrapedData); // Parse the stringified JSON data
+
+    if (products.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No products found'
+      });
+    }
+
+    // Select a random product from the array
+    const randomProduct = products[Math.floor(Math.random() * products.length)];
+
+    res.status(200).json({
+      success: true,
+      data: randomProduct
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
 
 const port = process.env.PORT || 7000;
 
