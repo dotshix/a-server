@@ -175,6 +175,7 @@ app.get('/api/scrape', async (req, res) => {
     const scrapedData = await scrapeSearch(item);
     const products = JSON.parse(scrapedData); // Parse the stringified JSON data
 
+    console.log(scrapedData)
     console.log(products)
 
     // Select a random product from the array
