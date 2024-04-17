@@ -19,7 +19,7 @@ const fetchPage = async (url, item) => {
 const scrape = (html) => {
   const root = parse(html);
 
-  console.log(html)
+  //console.log(html)
   // Gather product titles
   const titleNodes = root.querySelectorAll("div.a-section.a-spacing-base h2 span.a-color-base.a-text-normal");
   const titles = titleNodes.map(node => node.innerText);
