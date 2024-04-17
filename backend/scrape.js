@@ -4,14 +4,15 @@ import { parse } from 'node-html-parser';
 const fetchPage = async (url, item) => {
   const headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"};
 
-  try
-  {
-    const response = await axios.get(url + "/s?k=" + encodeURIComponent(item), { headers });
+  try {
+    const response = await axios.get(`${url}/s?k=${encodeURIComponent(item)}`, { headers });
+    console.log("HTTP Status Code:", response.status);  // Log the HTTP status code
     return response.data;
-  }
-  catch (error)
-  {
+  } catch (error) {
     console.error("Error fetching page:", error);
+    if (error.response) {
+      console.error("HTTP Status Code:", error.response.status);  // Log the status code on error
+    }
     return null;
   }
 };
@@ -45,11 +46,14 @@ const scrape = (html) => {
 export const scrapeSearch = async (item) => {
   const html = await fetchPage("https://www.amazon.com", item);
 
-  if (!html) return [];
+  if (!html) {
+    console.log("Failed to fetch HTML content.");
+    return [];
+  }
   return JSON.stringify(scrape(html), null, 2);
-  //return scrape(html);
 };
 
+// Uncomment to run the function directly
 // const main = async () => {
 //   const result = await scrapeSearch("Pencil Case");
 //   console.log(result);
