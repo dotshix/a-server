@@ -175,13 +175,6 @@ app.get('/api/scrape', async (req, res) => {
     const scrapedData = await scrapeSearch(item);
     const products = JSON.parse(scrapedData); // Parse the stringified JSON data
 
-    if (products.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No products found'
-      });
-    }
-
     // Select a random product from the array
     const randomProduct = products[Math.floor(Math.random() * products.length)];
 
